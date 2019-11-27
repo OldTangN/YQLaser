@@ -272,7 +272,7 @@ namespace YQLaser.UI.ViewModel
                 return;
             }
             var dtChuTiao = sql.SelectData(sqlChuTiao);
-            if (dtChuTiao == null || dtChuTiao.Rows.Count ==0)
+            if (dtChuTiao == null || dtChuTiao.Rows.Count == 0)
             {
                 MyLog.WriteLog($"{CurrFactoryCode}未查询到初调合格数据！");
                 ShowMsg($"{CurrFactoryCode}未查询到初调合格数据！");
@@ -285,7 +285,7 @@ namespace YQLaser.UI.ViewModel
                 return;
             }
             var dtFuJiao = sql.SelectData(sqlFuJiao);
-            if (dtFuJiao == null || dtFuJiao.Rows.Count ==0)
+            if (dtFuJiao == null || dtFuJiao.Rows.Count == 0)
             {
                 MyLog.WriteLog($"{CurrFactoryCode}未查询到复校合格数据！");
                 ShowMsg($"{CurrFactoryCode}未查询到复校合格数据！");
@@ -313,8 +313,8 @@ namespace YQLaser.UI.ViewModel
                 catch (Exception ex)
                 {
                     CurrHeart = HeartStatus.Error;
-                    MyLog.WriteLog("上传结论到服务器失败！", ex);
-                    ShowMsg("上传结论到服务器失败！");
+                    //MyLog.WriteLog("上传结论到服务器失败！", ex);
+                    ShowMsg("上传结论到服务器失败！" + ex.Message);
                 }
                 return;
             }
@@ -337,8 +337,8 @@ namespace YQLaser.UI.ViewModel
                 catch (Exception ex)
                 {
                     CurrHeart = HeartStatus.Error;
-                    MyLog.WriteLog("上传结论到服务器失败！", ex);
-                    ShowMsg("上传结论到服务器失败！");
+                    //MyLog.WriteLog("上传结论到服务器失败！", ex);
+                    ShowMsg("上传结论到服务器失败！" + ex.Message);
                 }
             }
             else
@@ -375,8 +375,8 @@ namespace YQLaser.UI.ViewModel
                 }
                 catch (Exception ex)
                 {
-                    ShowMsg("上传MQ失败!");
-                    MyLog.WriteLog("上传MQ失败!", ex);
+                    ShowMsg("上传MQ失败!" + ex.Message);
+                    //MyLog.WriteLog("上传MQ失败!", ex);
                 }
                 CurrHeart = HeartStatus.Finished;
                 if (SysCfg.LAST_CARVE_LINE + 1 >= lstMSN.Count)
@@ -402,9 +402,11 @@ namespace YQLaser.UI.ViewModel
                     InitLaser();
                 }
                 byte[] sendbyte = CSend(strData);
+                ShowMsg($"厂内码:{CurrFactoryCode}  MSN:{CurrMSN}  GUID:{CurrGUID}");
                 ShowMsg("发送给激光刻录机=>" + Encoding.ASCII.GetString(sendbyte));
                 MyLog.WriteLog("发送给激光刻录机=>" + Encoding.ASCII.GetString(sendbyte));
                 int len = socket.Send(sendbyte);
+                MyLog.WriteLog($"厂内码:{CurrFactoryCode}MSN:{CurrMSN}GUID:{CurrGUID}", "CARVE");
                 ShowMsg("发送完毕！");
                 int tryTimes = 2;
                 string rcvAnwser = "";
@@ -612,21 +614,17 @@ namespace YQLaser.UI.ViewModel
                 {
                     try
                     {
-                        //lock (objlock)
+                        HeartBeatMsg msg = new HeartBeatMsg()
                         {
-                            HeartBeatMsg msg = new HeartBeatMsg()
-                            {
-                                DEVICE_TYPE = SysCfg.DEVICE_TYPE,
-                                NO = SysCfg.NO,
-                                STATUS = ((int)CurrHeart).ToString()
-                            };
-                            string strMsg = JsonConvert.SerializeObject(msg);
-                            mqClient.SentMessage(strMsg);
-                        }
+                            DEVICE_TYPE = SysCfg.DEVICE_TYPE,
+                            NO = SysCfg.NO,
+                            STATUS = ((int)CurrHeart).ToString()
+                        };
+                        string strMsg = JsonConvert.SerializeObject(msg);
+                        mqClient.SentMessage(strMsg);
                     }
                     catch (Exception ex)
                     {
-                        MyLog.WriteLog(ex);
                         ShowMsg("心跳上报失败!" + ex.Message);
                     }
                     Thread.Sleep(SysCfg.HEARTBEAT_TIMESPAN);
