@@ -147,7 +147,7 @@ namespace YQLaser.UI.ViewModel
                     while (true)
                     {
                         LaserConnected = socket != null && socket.Connected;
-                        Thread.Sleep(500);
+                        Thread.Sleep(1500);
                     }
                 });
                 socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
@@ -344,17 +344,14 @@ namespace YQLaser.UI.ViewModel
             else
             {
                 CurrMeterRlt = "合格";
-                CurrCarveRlt = "准备刻录";
+                CurrCarveRlt = "刻录中...";
 
                 CurrMSN = lstMSN[SysCfg.LAST_CARVE_LINE + 1];
                 CurrHeart = HeartStatus.Working;
                 bool rlt = Carve(CurrMSN, CurrGUID);
                 if (rlt)
                 {
-                    ResultData.result = "0";
-                    ConfigurationUtil.SetConfiguration("LAST_CARVE_LINE", (SysCfg.LAST_CARVE_LINE + 1).ToString());
-                    ConfigurationUtil.SetConfiguration("LAST_CARVE_MSN", CurrMSN);
-                    LastMSN = SysCfg.LAST_CARVE_MSN;
+                    ResultData.result = "0";                   
                     CurrCarveRlt = "成功";
                 }
                 else
@@ -408,11 +405,15 @@ namespace YQLaser.UI.ViewModel
                 int len = socket.Send(sendbyte);
                 MyLog.WriteLog($"厂内码:{CurrFactoryCode}MSN:{CurrMSN}GUID:{CurrGUID}", "CARVE");
                 ShowMsg("发送完毕！");
-                int tryTimes = 2;
+                ConfigurationUtil.SetConfiguration("LAST_CARVE_LINE", (SysCfg.LAST_CARVE_LINE + 1).ToString());
+                ConfigurationUtil.SetConfiguration("LAST_CARVE_MSN", CurrMSN);
+                LastMSN = SysCfg.LAST_CARVE_MSN;
+                int tryTimes = 5;
                 string rcvAnwser = "";
                 do
                 {
                     rcvAnwser = ReceiveLaser();
+                    Thread.Sleep(3000);
                 } while (rcvAnwser != "30" && --tryTimes > 0);//"30"=刻录完成
                 if (rcvAnwser == "30")//完成
                 {
@@ -494,6 +495,7 @@ namespace YQLaser.UI.ViewModel
                         break;
                     }
                     result = result - 0x100;
+                    Thread.Sleep(100);
                 }
                 return Convert.ToByte(result);
             }
