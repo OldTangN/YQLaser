@@ -66,6 +66,20 @@ namespace YQLaser.UI
         /// </summary>
         public static string MASTER_DB_CONNSTR => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "");
 
+        /// <summary>
+        /// PLC通信IP
+        /// </summary>
+        public static string PLC_IP => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "10.50.57.61");
+
+        /// <summary>
+        /// PLC端口
+        /// </summary>
+        public static int PLC_PORT => ConfigurationUtil.GetConfiguration(int.Parse, () => 8501);
+
+         /// <summary>
+        /// PLC刻录地址
+        /// </summary>
+        public static string CARVE_ADDR => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "DM235");
 
         public static bool SetConfiguration(string key, object val)
         {

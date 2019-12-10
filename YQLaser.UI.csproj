@@ -21,7 +21,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;IO_TRIGGER</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
@@ -80,6 +80,8 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Common\ConfigurationUtil.cs" />
+    <Compile Include="Common\PLCHelper.cs" />
+    <Compile Include="Common\PLCResponse.cs" />
     <Compile Include="Common\SqlHelper.cs" />
     <Compile Include="Common\SysCfg.cs" />
     <Compile Include="ViewModel\MainViewModel.cs" />
@@ -126,7 +128,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Resource Include="laser.ico" />

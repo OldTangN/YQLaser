@@ -43,11 +43,11 @@ namespace YQLaser.UI
         {
             this.Dispatcher.Invoke(() =>
             {
-                if (rtxtMsg.Document.Blocks.Count > 30)
+                if (rtxtMsg.Document.Blocks.Count > 200)
                 {
                     rtxtMsg.Document.Blocks.Clear();
                 }
-                rtxtMsg.AppendText(txt + Environment.NewLine);
+                rtxtMsg.AppendText(DateTime.Now.ToString("HH:mm:ss.fff -- ") + txt + Environment.NewLine);
             });
         }
     }

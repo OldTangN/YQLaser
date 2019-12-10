@@ -80,9 +80,15 @@ namespace YQLaser.UI.ViewModel
         public string CurrMSN { get => _CurrMSN; set => Set(ref _CurrMSN, value); }
 
         public string LastMSN { get => _LastMSN; set => Set(ref _LastMSN, value); }
+
+        /// <summary>
+        /// PLC值
+        /// </summary>
+        public string PLC_VALUE { get => _PLC_VALUE; set => Set(ref _PLC_VALUE, value); }
         #endregion
 
         #region fields
+        private string _PLC_VALUE;
         private string _LastMSN;
         private RltData _ResultData;
         private string _CurrMSN;
@@ -152,7 +158,7 @@ namespace YQLaser.UI.ViewModel
                 });
                 socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
                 socket.SendTimeout = 2000;
-                socket.ReceiveTimeout = 60 * 1000;//1min
+                socket.ReceiveTimeout = 5000;//
                 socket.Connect(new IPEndPoint(IPAddress.Parse(SysCfg.SERVER_IP), SysCfg.SERVER_PORT));
                 return true;
             }
@@ -201,17 +207,29 @@ namespace YQLaser.UI.ViewModel
                 MyLog.WriteLog("2分钟前的消息不处理！");
                 return;
             }
+            if (CurrHeart == HeartStatus.Working)
+            {
+                ShowMsg("工作中，消息不处理！");
+                MyLog.WriteLog("工作中，消息不处理！");
+                return;
+            }
             try
             {
                 //lock (objlock)
                 {
                     if (msg.MESSAGE_TYPE == "task")
                     {
-                        AnalyseTaskMsg(data);
+                        Task.Run(() =>
+                        {
+                            AnalyseTaskMsg(data);
+                        });
                     }
                     else if (msg.MESSAGE_TYPE == "execute")
                     {
-                        AnalyseExecuteMsg(data);
+                        Task.Run(() =>
+                        {
+                            AnalyseExecuteMsg(data);
+                        });
                     }
                     else { }
                 }
@@ -251,6 +269,13 @@ namespace YQLaser.UI.ViewModel
                 CurrHeart = HeartStatus.Error;
                 MyLog.WriteLog("主控下发的启动命令错误，无厂内码!");
                 ShowMsg("主控下发的启动命令错误，无厂内码!");
+                return;
+            }
+            if (CurrHeart == HeartStatus.Error || CurrHeart == HeartStatus.Initializing
+                || CurrHeart == HeartStatus.Maintenance || CurrHeart == HeartStatus.Working)
+            {
+                MyLog.WriteLog($"状态为{CurrHeart},不执行!");
+                ShowMsg($"状态为{CurrHeart},不执行!");
                 return;
             }
             //未完成，未初始化结束不执行
@@ -351,7 +376,7 @@ namespace YQLaser.UI.ViewModel
                 bool rlt = Carve(CurrMSN, CurrGUID);
                 if (rlt)
                 {
-                    ResultData.result = "0";                   
+                    ResultData.result = "0";
                     CurrCarveRlt = "成功";
                 }
                 else
@@ -368,7 +393,10 @@ namespace YQLaser.UI.ViewModel
                         DEVICE_TYPE = SysCfg.DEVICE_TYPE,
                         DATA = new List<RltData>() { ResultData }
                     };
-                    mqClient.SentMessage(JsonConvert.SerializeObject(dataMsg));
+                    string msg = JsonConvert.SerializeObject(dataMsg);
+                    ShowMsg("上传MQ=>" + msg);
+                    MyLog.WriteLog("上传MQ=>" + msg);
+                    mqClient.SentMessage(msg);
                 }
                 catch (Exception ex)
                 {
@@ -388,6 +416,92 @@ namespace YQLaser.UI.ViewModel
             }
         }
 
+        private PLCHelper plc;
+
+#if IO_TRIGGER
+        private bool Carve(string msn, string guid)
+        {
+            string strData = string.Format("02;{0:X2}{1:X2};{2}{3}", msn.Length, guid.Length, msn, guid.ToUpper());
+            //发送给激光刻录机
+            try
+            {
+                DisConnect();//重新连接，以防缓存数据干扰
+                socket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+                socket.SendTimeout = 2000;
+                socket.ReceiveTimeout = 5000;//
+                socket.Connect(new IPEndPoint(IPAddress.Parse(SysCfg.SERVER_IP), SysCfg.SERVER_PORT));
+
+                byte[] sendbyte = CSend(strData);
+                ShowMsg($"厂内码:{CurrFactoryCode}  MSN:{CurrMSN}  GUID:{CurrGUID}");
+                ShowMsg("发送给激光刻录机=>" + Encoding.ASCII.GetString(sendbyte));
+                MyLog.WriteLog("发送给激光刻录机=>" + Encoding.ASCII.GetString(sendbyte));
+
+                ConfigurationUtil.SetConfiguration("LAST_CARVE_LINE", (SysCfg.LAST_CARVE_LINE + 1).ToString());
+                ConfigurationUtil.SetConfiguration("LAST_CARVE_MSN", CurrMSN);
+                LastMSN = SysCfg.LAST_CARVE_MSN;
+                MyLog.WriteLog($"厂内码:{CurrFactoryCode}MSN:{CurrMSN}GUID:{CurrGUID}", "CARVE");
+                int tryTimes = 3;//20
+                string rcvAnwser = "";
+                do
+                {
+                    int len = socket.Send(sendbyte);
+                    ShowMsg($"发送完毕{tryTimes}！");
+                    Thread.Sleep(1000);
+                    rcvAnwser = ReceiveLaser();
+                } while (rcvAnwser != "20" && --tryTimes > 0);//"30"=刻录完成  "20"=回复
+
+                if (rcvAnwser == "20")//刻录机收到数据应答
+                {
+                    ShowMsg("<=刻录机应答20，收到刻录数据!");
+                    MyLog.WriteLog("<=刻录机应答20，收到刻录数据!");
+                    PLC_VALUE = "";
+                    //触发PLC刻录
+                    plc?.DisConnect();
+                    plc = new PLCHelper(SysCfg.PLC_IP, SysCfg.PLC_PORT);
+                    plc.OnShowMsg += ShowMsg;
+                    if (!plc.Connect())
+                    {
+                        ShowMsg("PLC连接失败！");
+                        return false;
+                    }
+                    PLCResponse writeResp = plc.SetOnePoint(SysCfg.CARVE_ADDR, 3);
+                    if (writeResp.HasError)
+                    {
+                        ShowMsg("PLC连接失败！");
+                        return false;
+                    }
+                    //等待PLC刻录完成信号
+                    while (true)
+                    {
+                        Thread.Sleep(2000);
+                        PLCResponse resp = plc.ReadOnePoint(SysCfg.CARVE_ADDR);
+                        if (resp.HasError)
+                        {
+                            ShowMsg("PLC读取失败！");
+                            return false;
+                        }
+                        PLC_VALUE = resp.Text;
+                        if (Convert.ToInt32(resp.Text) == 4)
+                        {
+                            return true;
+                        }
+                    }
+                }
+                else
+                {
+                    ShowMsg("刻录机未应答【20】，刻录失败!");
+                    MyLog.WriteLog("刻录机未应答【20】，刻录失败!");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                MyLog.WriteLog("发送至激光刻录机失败！", ex);
+                ShowMsg("发送至激光刻录机失败！");
+                return false;
+            }
+        }
+#else
         private bool Carve(string msn, string guid)
         {
             string strData = string.Format("02;{0:X2}{1:X2};{2}{3}", msn.Length, +guid.Length, msn, guid.ToUpper());
@@ -431,6 +545,7 @@ namespace YQLaser.UI.ViewModel
                 return false;
             }
         }
+#endif
         #endregion
 
         private string GetGUID(string factoryCode)
@@ -518,6 +633,7 @@ namespace YQLaser.UI.ViewModel
                 int len = socket.Receive(buffer);
                 byte[] rcvData = buffer.Take(len).ToArray();
                 string strData = Encoding.ASCII.GetString(rcvData);
+                MyLog.WriteLog("<=接收刻录机:" + strData);
                 //分析接收的数据任务代码
                 bool tt = RecieveAnalyze(strData, out string control, out string answerType, out int number, out string data);
                 if (tt)
@@ -730,6 +846,26 @@ namespace YQLaser.UI.ViewModel
                 MyLog.WriteLog("MSN文件读取异常！", ex);
                 ShowMsg("MSN文件读取异常！");
             }
+        }
+        #endregion
+
+        #region SetPLCCarveCmd
+        private RelayCommand _SetPLCCarveCmd;
+        public RelayCommand SetPLCCarveCmd => _SetPLCCarveCmd ?? (_SetPLCCarveCmd = new RelayCommand(SetPLCCarve));
+        void SetPLCCarve()
+        {
+            if (System.Windows.MessageBox.Show("是否启动刻录？","警告", System.Windows.MessageBoxButton.YesNo) != System.Windows.MessageBoxResult.Yes)
+            {
+                return;
+            }
+            PLCHelper plc = new PLCHelper(SysCfg.PLC_IP, SysCfg.PLC_PORT);
+            plc.OnShowMsg += ShowMsg;
+            if (plc.Connect())
+            {
+                var resp = plc.SetOnePoint(SysCfg.CARVE_ADDR, 3);
+                ShowMsg(resp.HasError ? resp.ErrorMsg : resp.Text);
+            }
+            plc.DisConnect();
         }
         #endregion
 

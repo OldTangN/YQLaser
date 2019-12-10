@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:YQLaser.UI"
         mc:Ignorable="d"        
-        Title="激光刻录" Height="600" Width="800" Loaded="Window_Loaded" Closed="Window_Closed">
+        Title="激光刻录" Height="800" Width="1000" Loaded="Window_Loaded" Closed="Window_Closed">
     <Window.Resources>
         <local:BrushConvert x:Key="converter"></local:BrushConvert>
     </Window.Resources>
@@ -13,7 +13,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="50"></RowDefinition>
             <RowDefinition></RowDefinition>
-            <RowDefinition Height="50"></RowDefinition>
+
         </Grid.RowDefinitions>
         <StackPanel Orientation="Horizontal" Grid.Row="0" VerticalAlignment="Center">
             <TextBlock VerticalAlignment="Center">刻录机状态：</TextBlock>
@@ -39,9 +39,10 @@
 
         <TextBlock HorizontalAlignment="Left" Margin="29,254,0,0" Grid.Row="1" TextWrapping="Wrap" Text="制令号：" VerticalAlignment="Top"/>
         <TextBox HorizontalAlignment="Left" Height="23" Margin="82,250,0,0" Grid.Row="1" TextWrapping="Wrap" Text="{Binding Path=TaskData.WORKORDER_CODE}" VerticalAlignment="Top" Width="120"/>
-
-
-        <RichTextBox Name="rtxtMsg" HorizontalAlignment="Left" Height="428" VerticalAlignment="Top" Width="556" Margin="226,10,0,0" Grid.Row="1">
+        <RichTextBox Name="rtxtMsg" HorizontalAlignment="Left" VerticalScrollBarVisibility="Auto" Height="670" VerticalAlignment="Top" Width="725" Margin="226,10,0,0" Grid.Row="1">
         </RichTextBox>
+        <Button Content="触发刻录" Command="{Binding Path=SetPLCCarveCmd}" HorizontalAlignment="Left" Margin="127,480,0,0" Grid.Row="1" VerticalAlignment="Top" Width="75"/>
+        <TextBlock HorizontalAlignment="Left" Margin="29,341,0,0" Grid.Row="1" TextWrapping="Wrap" Text="PLC状态：" VerticalAlignment="Top"/>
+        <TextBox HorizontalAlignment="Left" Height="23" Margin="82,337,0,0" Grid.Row="1" TextWrapping="Wrap" Text="{Binding PLC_VALUE}" VerticalAlignment="Top" Width="120"/>
     </Grid>
 </Window>
