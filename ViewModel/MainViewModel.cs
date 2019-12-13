@@ -310,6 +310,7 @@ namespace YQLaser.UI.ViewModel
                 return;
             }
             var dtFuJiao = sql.SelectData(sqlFuJiao);
+            sql.Close();
             if (dtFuJiao == null || dtFuJiao.Rows.Count == 0)
             {
                 MyLog.WriteLog($"{CurrFactoryCode}未查询到复校合格数据！");
