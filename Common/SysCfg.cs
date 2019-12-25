@@ -14,7 +14,7 @@ namespace YQLaser.UI
         public static string DEVICE_TYPE => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "E024");
 
         /// <summary>
-        /// 设备类型
+        /// 设备号
         /// </summary>
         public static string NO => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "E02401");
 
@@ -22,11 +22,7 @@ namespace YQLaser.UI
         /// 刻录机IP
         /// </summary>
         public static string SERVER_IP => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "");
-        
-        /// <summary>
-        /// 刻录机IP
-        /// </summary>
-        public static string SQLCONN => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "");
+               
         
         /// <summary>
         /// 刻录机端口
@@ -65,7 +61,12 @@ namespace YQLaser.UI
         /// 主控数据库连接
         /// </summary>
         public static string MASTER_DB_CONNSTR => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "");
-
+        
+        /// <summary>
+        /// 艾孚数据库连接串
+        /// </summary>
+        public static string AF_DB_CONNSTR => ConfigurationUtil.GetConfiguration(Convert.ToString, () => "");
+       
         /// <summary>
         /// PLC通信IP
         /// </summary>

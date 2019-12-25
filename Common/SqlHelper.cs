@@ -18,30 +18,28 @@ namespace YQLaser.UI
             conn = new SqlConnection(strcon);
         }
         //打开数据库
-        public bool Open()
+        private bool Open()
         {
             bool connected = false;
-            //while (!connected)
+            try
             {
-                try
+                if (conn.State != ConnectionState.Open)
                 {
-                    if (conn.State != ConnectionState.Open)
-                    {
-                        conn.Open();
-                    }
-                    connected = true;
+                    conn.Open();
                 }
-                catch (Exception ex)
-                {
-                    MyLog.WriteLog("连接数据库失败！" + conn.ConnectionString, ex);
-                }
+                connected = true;
             }
+            catch (Exception ex)
+            {
+                MyLog.WriteLog("连接数据库失败！" + conn.ConnectionString, ex);
+            }
+
             return connected;
         }
 
 
         //关闭数据库
-        public void Close()
+        private void Close()
         {
             try
             {

@@ -286,35 +286,16 @@ namespace YQLaser.UI.ViewModel
                 return;
             }
             CurrFactoryCode = this.ResultData.BAR_CODE;
+            //查询艾孚数据库是否有精度检测数据
+            bool flagErrorData = ValidateAFErrorData(CurrFactoryCode);
+            if (!flagErrorData)
+            {
+                return;
+            }
             //查询初调、复校合格结果
-            string sqlChuTiao = $"select * from RESULT where RESULT=0 and BAR_CODE='{CurrFactoryCode}' and DEVICE_TYPE='E021';";
-            string sqlFuJiao = $"select* from RESULT where RESULT = 0 and BAR_CODE = '{CurrFactoryCode}' and DEVICE_TYPE='E022'; ";
-            SqlHelper sql = new SqlHelper(SysCfg.MASTER_DB_CONNSTR);
-            if (!sql.Open())
+            bool flagMaster = ValidateMasterRlt(CurrFactoryCode);
+            if (!flagMaster)
             {
-                MyLog.WriteLog("主控数据库连接失败！");
-                ShowMsg("主控数据库连接失败！");
-                return;
-            }
-            var dtChuTiao = sql.SelectData(sqlChuTiao);
-            if (dtChuTiao == null || dtChuTiao.Rows.Count == 0)
-            {
-                MyLog.WriteLog($"{CurrFactoryCode}未查询到初调合格数据！");
-                ShowMsg($"{CurrFactoryCode}未查询到初调合格数据！");
-                return;
-            }
-            if (!sql.Open())
-            {
-                MyLog.WriteLog("主控数据库连接失败！");
-                ShowMsg("主控数据库连接失败！");
-                return;
-            }
-            var dtFuJiao = sql.SelectData(sqlFuJiao);
-            sql.Close();
-            if (dtFuJiao == null || dtFuJiao.Rows.Count == 0)
-            {
-                MyLog.WriteLog($"{CurrFactoryCode}未查询到复校合格数据！");
-                ShowMsg($"{CurrFactoryCode}未查询到复校合格数据！");
                 return;
             }
             //查询GUID
@@ -325,7 +306,7 @@ namespace YQLaser.UI.ViewModel
                 //查不到GUID，不刻录，上传失败结果
                 CurrHeart = HeartStatus.Finished;
                 ShowMsg($"厂内码{CurrFactoryCode}查询不到GUID，不刻录!");
-                MyLog.WriteLog($"厂内码{CurrFactoryCode}查询不到GUID，不刻录!");
+                MyLog.WriteLog($"厂内码{CurrFactoryCode}查询不到GUID，不刻录!", "CARVE");
                 DataMsg dataMsg = new DataMsg()
                 {
                     NO = SysCfg.NO,
@@ -491,7 +472,7 @@ namespace YQLaser.UI.ViewModel
                 else
                 {
                     ShowMsg("刻录机未应答【20】，刻录失败!");
-                    MyLog.WriteLog("刻录机未应答【20】，刻录失败!");
+                    MyLog.WriteLog($"刻录机未应答【20】，刻录失败!厂内码{CurrFactoryCode}", "CARVE");
                     return false;
                 }
             }
@@ -549,12 +530,17 @@ namespace YQLaser.UI.ViewModel
 #endif
         #endregion
 
+        /// <summary>
+        /// 获取GUID
+        /// </summary>
+        /// <param name="factoryCode"></param>
+        /// <returns></returns>
         private string GetGUID(string factoryCode)
         {
             string guid = "";
             try
             {
-                SqlHelper sql = new SqlHelper(SysCfg.SQLCONN);
+                SqlHelper sql = new SqlHelper(SysCfg.AF_DB_CONNSTR);
                 string strSQL = "select GUID from t_mcodelink where innerID='" + factoryCode + "' order by LinkTime2 desc,LinkTime1 desc";
                 DataTable dt = sql.SelectData(strSQL);//根据厂内码查询GUID
                 if (dt != null && dt.Rows.Count > 0)
@@ -573,6 +559,51 @@ namespace YQLaser.UI.ViewModel
             return guid;
         }
 
+        /// <summary>
+        /// 验证艾孚数据库是否有精度检测的合格明细数据
+        /// </summary>
+        /// <param name="factoryCode"></param>
+        /// <returns></returns>
+        private bool ValidateAFErrorData(string factoryCode)
+        {
+            string errorsql = string.Format("select * from CHECK_DATA where zch='{0}' and JL='合格'  order by JYRQ desc", factoryCode);
+            SqlHelper sql = new SqlHelper(SysCfg.AF_DB_CONNSTR);
+            DataTable dtData = sql.SelectData(errorsql);
+            if (dtData == null || dtData.Rows.Count == 0)
+            {
+                ShowMsg($"没有精度检测数据，不刻录!厂内码{CurrFactoryCode}");
+                MyLog.WriteLog($"没有精度检测数据，不刻录!厂内码{CurrFactoryCode}", "CARVE");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 验证自动线主控数据库是否有初调与精度检测的合格结论
+        /// </summary>
+        /// <param name="factoryCode"></param>
+        /// <returns></returns>
+        private bool ValidateMasterRlt(string factoryCode)
+        {
+            string sqlChuTiao = $"select * from RESULT where RESULT=0 and BAR_CODE='{CurrFactoryCode}' and DEVICE_TYPE='E021';";
+            string sqlFuJiao = $"select* from RESULT where RESULT = 0 and BAR_CODE = '{CurrFactoryCode}' and DEVICE_TYPE='E022'; ";
+            SqlHelper sql = new SqlHelper(SysCfg.MASTER_DB_CONNSTR);
+            var dtChuTiao = sql.SelectData(sqlChuTiao);
+            if (dtChuTiao == null || dtChuTiao.Rows.Count == 0)
+            {
+                MyLog.WriteLog($"{CurrFactoryCode}未查询到初调合格数据！", "CARVE");
+                ShowMsg($"{CurrFactoryCode}未查询到初调合格数据！");
+                return false;
+            }
+            var dtFuJiao = sql.SelectData(sqlFuJiao);
+            if (dtFuJiao == null || dtFuJiao.Rows.Count == 0)
+            {
+                MyLog.WriteLog($"{CurrFactoryCode}未查询到复校合格数据！", "CARVE");
+                ShowMsg($"{CurrFactoryCode}未查询到复校合格数据！");
+                return false;
+            }
+            return true;
+        }
         #region 激光刻录协议
         private byte[] CSend(string data)
         {
@@ -853,9 +884,10 @@ namespace YQLaser.UI.ViewModel
         #region SetPLCCarveCmd
         private RelayCommand _SetPLCCarveCmd;
         public RelayCommand SetPLCCarveCmd => _SetPLCCarveCmd ?? (_SetPLCCarveCmd = new RelayCommand(SetPLCCarve));
-        void SetPLCCarve()
+
+        private void SetPLCCarve()
         {
-            if (System.Windows.MessageBox.Show("是否启动刻录？","警告", System.Windows.MessageBoxButton.YesNo) != System.Windows.MessageBoxResult.Yes)
+            if (System.Windows.MessageBox.Show("是否启动刻录？", "警告", System.Windows.MessageBoxButton.YesNo) != System.Windows.MessageBoxResult.Yes)
             {
                 return;
             }
